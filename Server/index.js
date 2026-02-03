@@ -23,6 +23,10 @@ const announcementsRouter = require('./announcements');
 const clientRelationRoutes = require("./clientRelationRoutes");
 const deleteUserClientRoutes = require("./deleteUserClientRoute");
 const unseenMessagesRoutes = require("./unseenMessagesRoutes");
+const dataCache = require("./dataCache");
+
+// Start Data Cache Polling
+dataCache.start();
 
 const app = express();
 app.use(express.json());

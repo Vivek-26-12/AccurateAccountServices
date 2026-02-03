@@ -1,4 +1,5 @@
 const express = require("express");
+const dataCache = require("./dataCache");
 const router = express.Router();
 
 // Days after which recent relations expire
@@ -69,16 +70,8 @@ module.exports = (db) => {
 
         removeOldRecents(); // Optional: clean up every time we fetch
 
-        const query = `
-            SELECT r.client_id, r.relation_type, c.company_name, c.contact_person, c.email, c.profile_pic
-            FROM ClientUserRelations r
-            JOIN Clients c ON r.client_id = c.client_id
-            WHERE r.user_id = ?
-        `;
-        db.query(query, [userId], (err, results) => {
-            if (err) return res.status(500).send("Error fetching client relations.");
-            res.json(results);
-        });
+        const results = dataCache.getClientRelations(userId);
+        res.json(results);
     });
 
     return router;

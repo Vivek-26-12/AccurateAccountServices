@@ -1,5 +1,6 @@
 // chatRoutes.js
 const express = require("express");
+const dataCache = require("./dataCache");
 
 module.exports = (db, io) => {
   const router = express.Router();
@@ -14,58 +15,13 @@ module.exports = (db, io) => {
 
     // Personal chat
     if (other_user_id && !group_id) {
-      const query = `
-        SELECT 
-          pc.chat_id, 
-          pc.sender_id, 
-          pc.receiver_id, 
-          pc.message, 
-          pc.created_at,
-          u1.first_name as sender_first_name,
-          u1.last_name as sender_last_name,
-          u1.profile_pic as sender_profile_pic,
-          u2.first_name as receiver_first_name,
-          u2.last_name as receiver_last_name,
-          u2.profile_pic as receiver_profile_pic
-        FROM PersonalChats pc
-        JOIN Users u1 ON pc.sender_id = u1.user_id
-        JOIN Users u2 ON pc.receiver_id = u2.user_id
-        WHERE (sender_id = ? AND receiver_id = ?)
-          OR (sender_id = ? AND receiver_id = ?)
-        ORDER BY created_at ASC
-      `;
-      db.query(query, [user_id, other_user_id, other_user_id, user_id], (err, results) => {
-        if (err) {
-
-          return res.status(500).json({ error: "Error fetching personal chats" });
-        }
-        res.json(results);
-      });
+      const results = dataCache.getPersonalMessages(user_id, other_user_id);
+      return res.json(results);
     }
     // Group chat
     else if (group_id) {
-      const query = `
-        SELECT 
-          gcm.message_id,
-          gcm.group_id,
-          gcm.sender_id,
-          gcm.message,
-          gcm.created_at,
-          u.first_name,
-          u.last_name,
-          u.profile_pic
-        FROM GroupChatMessages gcm
-        JOIN Users u ON gcm.sender_id = u.user_id
-        WHERE gcm.group_id = ?
-        ORDER BY gcm.created_at ASC
-      `;
-      db.query(query, [group_id], (err, results) => {
-        if (err) {
-
-          return res.status(500).json({ error: "Error fetching group messages" });
-        }
-        res.json(results);
-      });
+      const results = dataCache.getGroupMessages(group_id);
+      return res.json(results);
     } else {
       res.status(400).json({ error: "Invalid parameters" });
     }
@@ -139,72 +95,22 @@ module.exports = (db, io) => {
       return res.status(400).json({ error: "user_id is required" });
     }
 
-    const query = `
-      SELECT 
-        gc.group_id, 
-        gc.group_name, 
-        gc.created_at,
-        COUNT(gcm.message_id) as message_count
-      FROM GroupChats gc
-      JOIN GroupChatMembers gcmem ON gc.group_id = gcmem.group_id
-      LEFT JOIN GroupChatMessages gcm ON gc.group_id = gcm.group_id
-      WHERE gcmem.user_id = ?
-      GROUP BY gc.group_id
-      ORDER BY gc.created_at DESC
-    `;
-
-    db.query(query, [user_id], (err, results) => {
-      if (err) {
-
-        return res.status(500).json({ error: "Error fetching groups" });
-      }
-      res.json(results);
-    });
+    const results = dataCache.getGroups(user_id);
+    res.json(results);
   });
 
   // GET group members
   router.get("/groups/:group_id/members", (req, res) => {
     const { group_id } = req.params;
-
-    const query = `
-      SELECT 
-        u.user_id,
-        u.first_name,
-        u.last_name,
-        u.profile_pic,
-        a.role
-      FROM GroupChatMembers gcm
-      JOIN Users u ON gcm.user_id = u.user_id
-      JOIN Auth a ON u.auth_id = a.auth_id
-      WHERE gcm.group_id = ?
-    `;
-
-    db.query(query, [group_id], (err, results) => {
-      if (err) {
-        // Error fetching group members
-        return res.status(500).json({ error: "Error fetching group members" });
-      }
-      res.json(results);
-    });
+    const results = dataCache.getGroupMembers(group_id);
+    res.json(results);
   });
   // GET all group names
   router.get("/all-groups", (req, res) => {
-    const query = `
-    SELECT 
-      group_id,
-      group_name,
-      created_at
-    FROM GroupChats
-    ORDER BY created_at DESC
-  `;
-
-    db.query(query, (err, results) => {
-      if (err) {
-        // Error fetching all group names
-        return res.status(500).json({ error: "Error fetching all group names" });
-      }
-      res.json(results);
-    });
+    // NOTE: This route was returning just names, but dataCache.getAllGroups returns everything.
+    // Is this OK? Typically yes. Or we can map it here. Use getAllGroups from cache.
+    const results = dataCache.getAllGroups();
+    res.json(results);
   });
 
   // POST create new group
@@ -387,24 +293,8 @@ module.exports = (db, io) => {
 
   // GET all groups (for admin)
   router.get("/groups/all", (req, res) => {
-    const query = `
-      SELECT 
-        gc.group_id, 
-        gc.group_name, 
-        gc.created_at, 
-        COUNT(gcm.message_id) as message_count 
-      FROM GroupChats gc
-      LEFT JOIN GroupChatMessages gcm ON gc.group_id = gcm.group_id
-      GROUP BY gc.group_id
-      ORDER BY gc.created_at DESC
-    `;
-
-    db.query(query, (err, results) => {
-      if (err) {
-        return res.status(500).json({ error: "Error fetching groups" });
-      }
-      res.json(results);
-    });
+    const results = dataCache.getAllGroups();
+    res.json(results);
   });
 
   return router;

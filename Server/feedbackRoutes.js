@@ -1,5 +1,6 @@
 // feedbackRoutes.js
 const express = require("express");
+const dataCache = require("./dataCache");
 const router = express.Router();
 
 module.exports = (db) => {
@@ -23,54 +24,20 @@ module.exports = (db) => {
 
     // Get all feedbacks (For admin)
     router.get("/all", (req, res) => {
-        const query = `
-            SELECT f.feedback_id, f.message, f.created_at, c.company_name, c.contact_person
-            FROM Feedback f
-            JOIN Clients c ON f.client_id = c.client_id
-            ORDER BY f.created_at DESC
-        `;
-        db.query(query, (err, results) => {
-            if (err) {
-                console.error("Error fetching feedbacks:", err);
-                return res.status(500).json({ error: "Failed to retrieve feedbacks." });
-            }
-            res.json(results);
-        });
+        const results = dataCache.getAllFeedbacks();
+        res.json(results);
     });
 
     router.get("/count", (req, res) => {
-        const query = `SELECT COUNT(*) AS feedbackCount FROM Feedback`;
-
-        db.query(query, (err, results) => {
-            if (err) {
-                console.error("Error fetching feedback count:", err);
-                return res.status(500).json({ error: "Failed to retrieve feedback count." });
-            }
-
-            const count = results[0].feedbackCount;
-            res.status(200).json({ count });
-        });
+        const count = dataCache.getFeedbackCount();
+        res.status(200).json({ count });
     });
 
     // ✅ Count of feedbacks from previous day
     // ✅ Count of feedbacks from previous day
     router.get("/count/yesterday", (req, res) => {
-        const query = `
-        SELECT COUNT(*) AS yesterdayCount
-        FROM Feedback
-        WHERE created_at >= CURDATE() - INTERVAL 1 DAY
-          
-    `;
-
-        db.query(query, (err, results) => {
-            if (err) {
-                console.error("Error fetching yesterday's feedback count:", err);
-                return res.status(500).json({ error: "Failed to retrieve yesterday's count." });
-            }
-
-            const count = results[0].yesterdayCount;
-            res.status(200).json({ count });
-        });
+        const count = dataCache.getFeedbackCountYesterday();
+        res.status(200).json({ count });
     });
 
 

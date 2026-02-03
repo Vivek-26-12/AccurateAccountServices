@@ -1,4 +1,5 @@
 const express = require("express");
+const dataCache = require("./dataCache");
 
 module.exports = (db) => {
     const router = express.Router();
@@ -36,13 +37,8 @@ module.exports = (db) => {
 
     // Get all announcements
     router.get("/", (req, res) => {
-        db.query("SELECT * FROM Announcements ORDER BY created_at DESC", (err, results) => {
-            if (err) {
-                console.error("Error fetching announcements:", err);
-                return res.status(500).json({ error: "Failed to fetch announcements" });
-            }
-            res.json(results);
-        });
+        const results = dataCache.getAllAnnouncements();
+        res.json(results);
     });
 
     return router;

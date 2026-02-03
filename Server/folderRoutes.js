@@ -1,5 +1,6 @@
 // folderRoutes.js
 const express = require("express");
+const dataCache = require("./dataCache");
 const router = express.Router();
 
 module.exports = (db) => {
@@ -11,25 +12,8 @@ module.exports = (db) => {
             return res.status(400).json({ error: "Invalid client ID" });
         }
 
-        const query = `
-            SELECT f.folder_id, f.folder_name
-            FROM Folders f
-            WHERE f.folder_id != 1
-            AND f.folder_id NOT IN (
-                SELECT fc.folder_id
-                FROM FolderConnections fc
-                WHERE fc.client_id = ?
-            );
-        `;
-
-        db.query(query, [clientId], (err, results) => {
-            if (err) {
-                console.error("Error executing query:", err);
-                return res.status(500).json({ error: "Database error" });
-            }
-
-            res.json(results);
-        });
+        const results = dataCache.getRemainingFolders(clientId);
+        res.json(results);
     });
 
     // ✅ POST create folder and link to client

@@ -1,0 +1,194 @@
+And this is my schema for the clearity of the database 
+
+
+Table: Announcements
+Columns:
+announcement_id int AI PK 
+auth_id int 
+title varchar(255) 
+message text 
+created_at timestamp 
+updated_at timestamp
+
+
+
+Table: Auth
+Columns:
+auth_id int AI PK 
+username varchar(50) 
+password varchar(255) 
+role enum('admin','employee','client') 
+created_at timestamp 
+updated_at timestamp
+
+
+Table: ClientContacts
+Columns:
+contact_id int AI PK 
+client_id int 
+contact_name varchar(100) 
+phone varchar(15) 
+email varchar(100) 
+created_at timestamp 
+updated_at timestamp
+
+
+Table: Clients
+Columns:
+client_id int AI PK 
+auth_id int 
+company_name varchar(100) 
+contact_person varchar(100) 
+email varchar(100) 
+gstin varchar(15) 
+pan_number varchar(10) 
+created_at timestamp 
+updated_at timestamp 
+profile_pic text 
+address text
+
+
+
+Table: ClientUserRelations
+Columns:
+relation_id int AI PK 
+user_id int 
+client_id int 
+relation_type enum('Favourite','Recent') 
+created_at timestamp
+
+
+Table: Feedback
+Columns:
+feedback_id int AI PK 
+client_id int 
+message text 
+created_at timestamp
+
+
+
+Table: FolderConnections
+Columns:
+connection_id int AI PK 
+client_id int 
+folder_id int
+
+
+
+Table: Folders
+Columns:
+folder_id int AI PK 
+folder_name varchar(100) 
+created_at timestamp 
+updated_at timestamp
+
+
+
+Table: GroupChatMembers
+Columns:
+membership_id int AI PK 
+group_id int 
+user_id int
+
+
+
+Table: GroupChatMessages
+Columns:
+message_id int AI PK 
+group_id int 
+sender_id int 
+message text 
+created_at timestamp
+
+
+
+
+Table: GroupChatMessageSeen
+Columns:
+seen_id int AI PK 
+user_id int 
+group_id int 
+message_id int 
+is_seen tinyint(1) 
+seen_at timestamp
+
+
+
+Table: GroupChats
+Columns:
+group_id int AI PK 
+group_name varchar(100) 
+created_at timestamp 
+created_by int
+
+
+
+Table: GuestMessages
+Columns:
+message_id int AI PK 
+guest_name varchar(100) 
+guest_email varchar(100) 
+message text 
+created_at timestamp
+
+
+
+
+Table: ImportantDocuments
+Columns:
+doc_id int AI PK 
+doc_type enum('Balance Sheet','Profit and Loss','Capital Account','Aadhar Card','PAN Card') 
+client_id int 
+folder_id int 
+doc_data text 
+created_at timestamp
+
+
+
+Table: OtherDocuments
+Columns:
+doc_id int AI PK 
+doc_data text 
+client_id int 
+folder_id int 
+created_at timestamp 
+doc_name varchar(255)
+
+
+
+Table: PersonalChats
+Columns:
+chat_id int AI PK 
+sender_id int 
+receiver_id int 
+message text 
+created_at timestamp 
+is_seen tinyint(1)
+
+
+
+Table: Tasks
+Columns:
+task_id int AI PK 
+task_name varchar(100) 
+assigned_by int 
+assigned_to int 
+group_id int 
+status enum('Pending','In Progress','Completed') 
+due_date date 
+created_at timestamp 
+priority enum('High','Medium','Low')
+
+
+
+Table: Users
+Columns:
+user_id int AI PK 
+auth_id int 
+first_name varchar(50) 
+last_name varchar(50) 
+email varchar(100) 
+phone varchar(15) 
+created_at timestamp 
+updated_at timestamp 
+profile_pic text
