@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { AuthProvider } from './Data/AuthData.tsx'; // Updated import path
+import { AuthProvider } from './Data/AuthData.tsx'; 
 import { ProfileProvider } from './Data/ProfileData.tsx';
 import { UserProvider } from './Data/UserData.tsx';
 import { ClientProvider } from './Data/ClientData.tsx';
