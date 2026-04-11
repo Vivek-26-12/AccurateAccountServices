@@ -99,10 +99,6 @@ npm run dev
 
 **Vivek Dhanwani** [🐙 GitHub Profile](https://github.com/Vivek-26-12) | [📧 Support](mailto:vivekdhanwani2004@gmail.com)
 
-\<div align="center"\>
-\<i\>Maintained with ⚡ by Vivek-26-12 | Status: ✅ Active Development\</i\>
-\</div\>
-
-```
-
-```
+<p align="center">
+  <i>Maintained with ⚡ by <b>Vivek-26-12</b> | Status: ✅ Active Development</i>
+</p>
