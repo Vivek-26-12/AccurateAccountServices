@@ -28,122 +28,136 @@ class DataCache {
         setInterval(() => this.refresh(), intervalMs);
     }
 
-    refresh() {
-        // --- EXISTING ---
+    async refresh() {
+        try {
+            // --- USERS ---
+            const userQuery = `
+                SELECT 
+                    Users.user_id, Users.auth_id, Auth.username, Auth.role, 
+                    Users.first_name, Users.last_name, Users.email, Users.phone, 
+                    Users.profile_pic, Users.created_at, Users.updated_at 
+                FROM Users 
+                INNER JOIN Auth ON Users.auth_id = Auth.auth_id
+                ORDER BY Users.user_id ASC`;
 
-        // Fetch Users (Employees)
-        const userQuery = `
-            SELECT 
-                Users.user_id, Users.auth_id, Auth.username, Auth.role, 
-                Users.first_name, Users.last_name, Users.email, Users.phone, 
-                Users.profile_pic, Users.created_at, Users.updated_at 
-            FROM Users 
-            INNER JOIN Auth ON Users.auth_id = Auth.auth_id
-            ORDER BY Users.user_id ASC`;
-        db.query(userQuery, (err, results) => { if (!err) this.users = results; });
+            // --- GROUPS & MESSAGES ---
+            const groupQuery = `SELECT * FROM GroupChats ORDER BY created_at DESC`;
+            const groupMembersQuery = `
+                SELECT gcm.group_id, u.user_id, u.first_name, u.last_name, u.profile_pic, a.role
+                FROM GroupChatMembers gcm
+                JOIN Users u ON gcm.user_id = u.user_id
+                JOIN Auth a ON u.auth_id = a.auth_id`;
+            const groupMsgsQuery = `
+                SELECT 
+                    gcm.message_id, gcm.group_id, gcm.sender_id, gcm.message, gcm.created_at,
+                    u.first_name, u.last_name, u.profile_pic
+                FROM GroupChatMessages gcm
+                JOIN Users u ON gcm.sender_id = u.user_id
+                ORDER BY gcm.created_at ASC`;
+            const personalMsgsQuery = `
+                SELECT 
+                    pc.chat_id, pc.sender_id, pc.receiver_id, pc.message, pc.created_at,
+                    u1.first_name as sender_first_name, u1.last_name as sender_last_name, u1.profile_pic as sender_profile_pic,
+                    u2.first_name as receiver_first_name, u2.last_name as receiver_last_name, u2.profile_pic as receiver_profile_pic
+                FROM PersonalChats pc
+                JOIN Users u1 ON pc.sender_id = u1.user_id
+                JOIN Users u2 ON pc.receiver_id = u2.user_id
+                ORDER BY created_at ASC`;
 
-        // Fetch Groups
-        const groupQuery = `SELECT * FROM GroupChats ORDER BY created_at DESC`;
-        db.query(groupQuery, (err, results) => { if (!err) this.groups = results; });
+            // --- CLIENTS & DOCUMENTS ---
+            const clientQuery = `
+                SELECT Clients.client_id, Clients.auth_id, Auth.username, Auth.role,
+                       Clients.company_name, Clients.contact_person, Clients.email,
+                       Clients.gstin, Clients.pan_number, Clients.profile_pic,
+                       Clients.created_at, Clients.updated_at
+                FROM Clients
+                INNER JOIN Auth ON Clients.auth_id = Auth.auth_id`;
 
-        // Fetch Group Members
-        const groupMembersQuery = `
-            SELECT gcm.group_id, u.user_id, u.first_name, u.last_name, u.profile_pic, a.role
-            FROM GroupChatMembers gcm
-            JOIN Users u ON gcm.user_id = u.user_id
-            JOIN Auth a ON u.auth_id = a.auth_id`;
-        db.query(groupMembersQuery, (err, results) => { if (!err) this.groupMembers = results; });
+            const taskQuery = `
+                SELECT 
+                    t.task_id, t.task_name, t.status, t.due_date, t.created_at, t.priority, t.group_id,
+                    t.assigned_by, t.assigned_to,
+                    assignedBy.first_name AS assigned_by_first_name, assignedBy.last_name AS assigned_by_last_name,
+                    assignedTo.first_name AS assigned_to_first_name, assignedTo.last_name AS assigned_to_last_name,
+                    gc.group_name
+                FROM Tasks t
+                LEFT JOIN Users assignedBy ON t.assigned_by = assignedBy.user_id
+                LEFT JOIN Users assignedTo ON t.assigned_to = assignedTo.user_id
+                LEFT JOIN GroupChats gc ON t.group_id = gc.group_id
+                ORDER BY 
+                    CASE WHEN t.priority = 'High' THEN 1
+                         WHEN t.priority = 'Medium' THEN 2
+                         WHEN t.priority = 'Low' THEN 3
+                         ELSE 4 END,
+                    t.due_date ASC`;
 
-        // Fetch Group Messages
-        const groupMsgsQuery = `
-            SELECT 
-                gcm.message_id, gcm.group_id, gcm.sender_id, gcm.message, gcm.created_at,
-                u.first_name, u.last_name, u.profile_pic
-            FROM GroupChatMessages gcm
-            JOIN Users u ON gcm.sender_id = u.user_id
-            ORDER BY gcm.created_at ASC`;
-        db.query(groupMsgsQuery, (err, results) => { if (!err) this.groupMessages = results; });
+            const feedbackQuery = `
+                SELECT f.feedback_id, f.message, f.created_at, c.company_name, c.contact_person
+                FROM Feedback f
+                JOIN Clients c ON f.client_id = c.client_id
+                ORDER BY f.created_at DESC`;
 
-        // Fetch Personal Messages
-        const personalMsgsQuery = `
-            SELECT 
-                pc.chat_id, pc.sender_id, pc.receiver_id, pc.message, pc.created_at,
-                u1.first_name as sender_first_name, u1.last_name as sender_last_name, u1.profile_pic as sender_profile_pic,
-                u2.first_name as receiver_first_name, u2.last_name as receiver_last_name, u2.profile_pic as receiver_profile_pic
-            FROM PersonalChats pc
-            JOIN Users u1 ON pc.sender_id = u1.user_id
-            JOIN Users u2 ON pc.receiver_id = u2.user_id
-            ORDER BY created_at ASC`;
-        db.query(personalMsgsQuery, (err, results) => { if (!err) this.personalMessages = results; });
+            // Execute all queries in parallel for maximum performance
+            const [
+                [users],
+                [groups],
+                [groupMembers],
+                [groupMessages],
+                [personalMessages],
+                [announcements],
+                [clients],
+                [clientContacts],
+                [tasks],
+                [folders],
+                [folderConnections],
+                [importantDocuments],
+                [otherDocuments],
+                [feedbacks],
+                [guestMessages],
+                [clientUserRelations]
+            ] = await Promise.all([
+                db.query(userQuery),
+                db.query(groupQuery),
+                db.query(groupMembersQuery),
+                db.query(groupMsgsQuery),
+                db.query(personalMsgsQuery),
+                db.query(`SELECT * FROM Announcements ORDER BY created_at DESC`),
+                db.query(clientQuery),
+                db.query(`SELECT * FROM ClientContacts`),
+                db.query(taskQuery),
+                db.query(`SELECT * FROM Folders`),
+                db.query(`SELECT * FROM FolderConnections`),
+                db.query(`SELECT * FROM ImportantDocuments`),
+                db.query(`SELECT * FROM OtherDocuments`),
+                db.query(feedbackQuery),
+                db.query(`SELECT * FROM GuestMessages ORDER BY created_at DESC`),
+                db.query(`SELECT * FROM ClientUserRelations`)
+            ]);
 
-        // Fetch Announcements
-        db.query(`SELECT * FROM Announcements ORDER BY created_at DESC`, (err, results) => { if (!err) this.announcements = results; });
+            // Update Cache atomatically (all at once)
+            this.users = users;
+            this.groups = groups;
+            this.groupMembers = groupMembers;
+            this.groupMessages = groupMessages;
+            this.personalMessages = personalMessages;
+            this.announcements = announcements;
+            this.clients = clients;
+            this.clientContacts = clientContacts;
+            this.tasks = tasks;
+            this.folders = folders;
+            this.folderConnections = folderConnections;
+            this.importantDocuments = importantDocuments;
+            this.otherDocuments = otherDocuments;
+            this.feedbacks = feedbacks;
+            this.guestMessages = guestMessages;
+            this.clientUserRelations = clientUserRelations;
 
-        // --- NEW ---
-
-        // Fetch Clients (with Auth info)
-        const clientQuery = `
-            SELECT Clients.client_id, Clients.auth_id, Auth.username, Auth.role,
-                   Clients.company_name, Clients.contact_person, Clients.email,
-                   Clients.gstin, Clients.pan_number, Clients.profile_pic,
-                   Clients.created_at, Clients.updated_at
-            FROM Clients
-            INNER JOIN Auth ON Clients.auth_id = Auth.auth_id`;
-        db.query(clientQuery, (err, results) => { if (!err) this.clients = results; });
-
-        // Fetch Client Contacts
-        db.query(`SELECT * FROM ClientContacts`, (err, results) => { if (!err) this.clientContacts = results; });
-
-        // Fetch Tasks (Raw, we will join in memory to save DB load or keep query simple)
-        // Note: The task route does complex joins. We can do that here once or replicate in JS.
-        // Let's do the JOIN here so the cache is "ready-to-serve".
-        const taskQuery = `
-          SELECT 
-            t.task_id, t.task_name, t.status, t.due_date, t.created_at, t.priority, t.group_id,
-            t.assigned_by, t.assigned_to,
-            assignedBy.first_name AS assigned_by_first_name, assignedBy.last_name AS assigned_by_last_name,
-            assignedTo.first_name AS assigned_to_first_name, assignedTo.last_name AS assigned_to_last_name,
-            gc.group_name
-          FROM Tasks t
-          LEFT JOIN Users assignedBy ON t.assigned_by = assignedBy.user_id
-          LEFT JOIN Users assignedTo ON t.assigned_to = assignedTo.user_id
-          LEFT JOIN GroupChats gc ON t.group_id = gc.group_id
-          ORDER BY 
-            CASE WHEN t.priority = 'High' THEN 1
-                 WHEN t.priority = 'Medium' THEN 2
-                 WHEN t.priority = 'Low' THEN 3
-                 ELSE 4 END,
-            t.due_date ASC`;
-        db.query(taskQuery, (err, results) => { if (!err) this.tasks = results; });
-
-        // Fetch Folders
-        db.query(`SELECT * FROM Folders`, (err, results) => { if (!err) this.folders = results; });
-
-        // Fetch Folder Connections
-        db.query(`SELECT * FROM FolderConnections`, (err, results) => { if (!err) this.folderConnections = results; });
-
-        // Fetch Important Documents
-        db.query(`SELECT * FROM ImportantDocuments`, (err, results) => { if (!err) this.importantDocuments = results; });
-
-        // Fetch Other Documents
-        db.query(`SELECT * FROM OtherDocuments`, (err, results) => { if (!err) this.otherDocuments = results; });
-
-        // Fetch Feedbacks (with Client Info)
-        const feedbackQuery = `
-            SELECT f.feedback_id, f.message, f.created_at, c.company_name, c.contact_person
-            FROM Feedback f
-            JOIN Clients c ON f.client_id = c.client_id
-            ORDER BY f.created_at DESC`;
-        db.query(feedbackQuery, (err, results) => { if (!err) this.feedbacks = results; });
-
-        // Fetch Guest Messages
-        db.query(`SELECT * FROM GuestMessages ORDER BY created_at DESC`, (err, results) => { if (!err) this.guestMessages = results; });
-
-        // Fetch Client User Relations
-        db.query(`SELECT * FROM ClientUserRelations`, (err, results) => { if (!err) this.clientUserRelations = results; });
+        } catch (error) {
+            console.error("❌ DataCache Refresh Error:", error);
+        }
     }
 
-    // --- GETTERS ---
+    // --- GETTERS (Remain Sync since they access the cache memory) ---
 
     // USERS
     getUsers() { return this.users; }
@@ -224,9 +238,9 @@ class DataCache {
 
             return {
                 ...client,
-                importantDocuments: clientImpDocs, // Also available at root? clientDataRoutes line 82 implies yes.
+                importantDocuments: clientImpDocs, 
                 folders: clientFolders,
-                otherDocuments: [] // clientDataRoutes line 89 implies empty array at root
+                otherDocuments: [] 
             };
         });
     }
@@ -252,18 +266,7 @@ class DataCache {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(0, 0, 0, 0);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        return this.feedbacks.filter(f => {
-            const d = new Date(f.created_at);
-            return d >= yesterday && d < today;
-            // Query said >= yesterday, but usually means for THAT day? 
-            // The SQL was `created_at >= CURDATE() - INTERVAL 1 DAY`. This means last 24h or since start of yesterday?
-            // "CURDATE()" is 00:00:00 today. "- INTERVAL 1 DAY" is 00:00:00 yesterday.
-            // So it captures everything from yesterday start until now.
-            return d >= yesterday;
-        }).length;
+        return this.feedbacks.filter(f => new Date(f.created_at) >= yesterday).length;
     }
 
     getAllGuestMessages() { return this.guestMessages; }
@@ -272,16 +275,11 @@ class DataCache {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(0, 0, 0, 0);
-
-        return this.guestMessages.filter(m => {
-            const d = new Date(m.created_at);
-            return d >= yesterday;
-        }).length;
+        return this.guestMessages.filter(m => new Date(m.created_at) >= yesterday).length;
     }
 
     // CLIENT RELATIONS
     getClientRelations(userId) {
-        // Join with Clients to get details
         return this.clientUserRelations
             .filter(r => r.user_id == userId)
             .map(r => {
