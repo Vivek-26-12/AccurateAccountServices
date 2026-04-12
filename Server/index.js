@@ -31,6 +31,17 @@ const dataCache = require("./dataCache");
 // Start Data Cache Polling
 dataCache.start();
 
+// Add this to Server/index.js
+// Keep-Alive: Ping the DB every 5 minutes to prevent Aiven from sleeping
+setInterval(async () => {
+    try {
+        await db.query('SELECT 1');
+        console.log('Database heartbeat sent to Aiven');
+    } catch (err) {
+        console.error('Heartbeat failed:', err.message);
+    }
+}, 5 * 60 * 1000);
+
 const app = express();
 
 // Middleware
