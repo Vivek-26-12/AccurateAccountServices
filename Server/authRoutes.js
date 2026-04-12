@@ -3,8 +3,8 @@ const express = require("express");
 module.exports = (db) => {
     const router = express.Router();
 
-    // Authentication route
-    router.post("/", (req, res) => {
+    // Authentication route (Refactored for async/await)
+    router.post("/", async (req, res) => {
         const { username, password } = req.body;
 
         if (!username || !password) {
@@ -13,11 +13,9 @@ module.exports = (db) => {
 
         const query = "SELECT * FROM Auth WHERE username = ?";
 
-        db.query(query, [username], (err, results) => {
-            if (err) {
-                console.error("Database error:", err);
-                return res.status(500).json({ error: "Database error" });
-            }
+        try {
+            // Using promise-based query
+            const [results] = await db.query(query, [username]);
 
             if (results.length === 0) {
                 return res.status(401).json({ error: "Invalid credentials" });
@@ -25,12 +23,17 @@ module.exports = (db) => {
 
             const user = results[0];
 
+            // Note: In production, use bcrypt.compare instead of plain text comparison
             if (user.password !== password) {
                 return res.status(401).json({ error: "Invalid credentials" });
             }
 
+            // Success
             res.json({ message: "Login successful", user });
-        });
+        } catch (err) {
+            console.error("❌ Database error during login:", err);
+            res.status(500).json({ error: "Internal Server Error" });
+        }
     });
 
     return router;
