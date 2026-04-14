@@ -121,15 +121,21 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       setError(null);
       try {
-        // 1. Fetch Profile (Unified route handles Client, Admin, or Employee)
-        const profileRes = await axios.get(`${API_BASE_URL}/users/auth/${user.auth_id}`);
+        // 1. Fetch Profile using the specific ID (user_id for employees, client_id for clients)
+        const profileId = user.role === 'client' ? user.client_id : user.user_id;
+        const profilePath = user.role === 'client' ? `/clients/${profileId}` : `/users/${profileId}`;
+        
+        if (!profileId) {
+          throw new Error("Missing specific profile ID");
+        }
+
+        const profileRes = await axios.get(`${API_BASE_URL}${profilePath}`);
         const profileData = profileRes.data;
         
         setProfile(profileData);
 
         // 2. Map Profile to CurrentUser format
         if (user.role === 'client') {
-          // If the profile fetch reveals a different ID or more details, update it
           setCurrentUser({
             user_id: profileData.client_id || user.client_id || 0,
             auth_id: user.auth_id,
@@ -141,9 +147,8 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             updated_at: profileData.updated_at || new Date().toISOString(),
             profile_pic: profileData.profile_pic || null
           });
-          setUsers([]); // Clients shouldn't see other users
+          setUsers([]); 
         } else {
-          // Merge profile details with the existing user object (which now contains user_id)
           setCurrentUser({
             ...user,
             ...profileData

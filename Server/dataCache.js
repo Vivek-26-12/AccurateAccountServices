@@ -193,6 +193,14 @@ class DataCache {
             contacts: this.clientContacts.filter(c => c.client_id === client.client_id)
         }));
     }
+    getClient(id) {
+        const client = this.clients.find(c => c.client_id == id);
+        if (!client) return null;
+        return {
+            ...client,
+            contacts: this.clientContacts.filter(c => c.client_id === client.client_id)
+        };
+    }
     getClientByAuthId(authId) {
         const client = this.clients.find(c => c.auth_id == authId);
         if (!client) return null;
