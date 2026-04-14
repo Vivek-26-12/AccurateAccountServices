@@ -27,6 +27,7 @@ const clientRelationRoutes = require("./clientRelationRoutes");
 const deleteUserClientRoutes = require("./deleteUserClientRoute");
 const unseenMessagesRoutes = require("./unseenMessagesRoutes");
 const dataCache = require("./dataCache");
+const heartbeatRoutes = require("./heartbeatRoutes");
 
 // Start Data Cache Polling
 dataCache.start();
@@ -99,6 +100,7 @@ app.use("/guest-messages", guestMessageRoutes(db));
 app.use('/announcements', announcementsRouter(db));
 app.use("/client-relations", clientRelationRoutes(db));
 app.use("/delete", deleteUserClientRoutes(db, io));
+app.use("/heartbeat", heartbeatRoutes(db));
 
 // Global Error Handlers
 process.on('unhandledRejection', (reason, promise) => {
