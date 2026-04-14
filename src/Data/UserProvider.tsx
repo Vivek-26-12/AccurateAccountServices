@@ -147,8 +147,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           setUsers(usersData.filter((u: AppUser) => u.auth_id !== user.auth_id));
         }
       } catch (err: any) {
-        console.error("Failed to fetch full user details", err);
-        setError("Failed to load user details");
+        console.error("Failed to fetch full user details:", err.response?.status, err.message);
+        setError("User details not found");
+        setLoading(false); 
       } finally {
         setLoading(false);
       }
