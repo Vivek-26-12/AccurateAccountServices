@@ -3,10 +3,27 @@ const dataCache = require("./dataCache");
 const router = express.Router();
 
 module.exports = (db) => {
-  // GET /tasks - Fetch all tasks with details
+  // GET /tasks - Fetch all tasks with details (Paginated)
   router.get("/tasks", (req, res) => {
     const results = dataCache.getTasks();
-    res.json(results);
+    const page = req.query.page ? parseInt(req.query.page) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 20;
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      const paginatedResults = results.slice(offset, offset + limit);
+      res.json({
+        data: paginatedResults,
+        pagination: {
+          currentPage: page,
+          pageSize: limit,
+          total: results.length,
+          totalPages: Math.ceil(results.length / limit)
+        }
+      });
+    } else {
+      res.json(results);
+    }
   });
   // GET /tasks/user/:userId - Fetch tasks assigned to a specific user
   router.get("/tasks/user/:userId", (req, res) => {

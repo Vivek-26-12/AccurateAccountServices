@@ -10,10 +10,25 @@ import { fetchClients, Client, Folder } from '../Data/Client';
 import { useUserContext } from '../Data/UserData';
 import API_BASE_URL from '../config';
 
+import { PaginationControls } from '../components/PaginationControls';
+
 function DocumentsMain() {
+  interface PaginationState {
+    currentPage: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  }
+
   const { currentUser } = useUserContext();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0
+  });
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
@@ -32,16 +47,35 @@ function DocumentsMain() {
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const [folderToDelete, setFolderToDelete] = useState<{ id: number, name: string } | null>(null);
 
+  const loadClients = async (page: number = 1) => {
+    if (!currentUser?.user_id) return;
+    setLoading(true);
+    const response = await fetchClients(currentUser.user_id, page, 20);
+    
+    if (Array.isArray(response)) {
+      setClients(response);
+      setPagination({
+        currentPage: 1,
+        pageSize: 20,
+        total: response.length,
+        totalPages: 1
+      });
+    } else {
+      setClients(response.data);
+      if (response.pagination) {
+        setPagination(response.pagination);
+      }
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const loadClients = async () => {
-      if (!currentUser?.user_id) return;
-      const data = await fetchClients(currentUser.user_id);
-      // console.log("Fetched clients data:", data);
-      setClients(data);
-      setLoading(false);
-    };
-    loadClients();
+    loadClients(1);
   }, [currentUser]);
+
+  const handlePageChange = (newPage: number) => {
+    loadClients(newPage);
+  };
 
   const handleFavoriteToggle = async (clientId: number, isFavorite: boolean) => {
     if (!currentUser?.user_id) return;
@@ -632,6 +666,15 @@ function DocumentsMain() {
             />
           ))}
         </div>
+        
+        {filteredClients.length > 0 && (
+          <PaginationControls
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+            isLoading={loading}
+          />
+        )}
 
         {filteredClients.length === 0 && (
           <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">

@@ -13,18 +13,42 @@ module.exports = (db, io) => {
       return res.status(400).json({ error: "user_id is required" });
     }
 
+    let results = [];
     // Personal chat
     if (other_user_id && !group_id) {
-      const results = dataCache.getPersonalMessages(user_id, other_user_id);
-      return res.json(results);
+      results = dataCache.getPersonalMessages(user_id, other_user_id);
     }
     // Group chat
     else if (group_id) {
-      const results = dataCache.getGroupMessages(group_id);
-      return res.json(results);
+      results = dataCache.getGroupMessages(group_id);
     } else {
-      res.status(400).json({ error: "Invalid parameters" });
+      return res.status(400).json({ error: "Invalid parameters" });
     }
+
+    const page = req.query.page ? parseInt(req.query.page) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 50; // Default 50 messages
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      // For chat, we usually want the LATEST messages, so we reverse it or slice from the end?
+      // Wait, dataCache has them chronologically ascending (oldest first). 
+      // If page 1 is latest, we should slice from the end. But typical offset pagination slices from array start.
+      // Let's just simply slice for now, assuming standard offset logic or letting frontend handle reverse scrolling.
+      // Since `offset` goes from 0 to N.
+      // Actually, standard array slice:
+      const paginatedResults = results.slice(offset, offset + limit);
+      return res.json({
+        data: paginatedResults,
+        pagination: {
+          currentPage: page,
+          pageSize: limit,
+          total: results.length,
+          totalPages: Math.ceil(results.length / limit)
+        }
+      });
+    }
+
+    return res.json(results);
   });
 
   // POST new message

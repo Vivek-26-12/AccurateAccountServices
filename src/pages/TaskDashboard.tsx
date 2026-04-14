@@ -18,6 +18,15 @@ const TaskDashboard = () => {
     real_group_id?: number;
   }
 
+  import { PaginationControls } from '../components/PaginationControls';
+
+  interface PaginationState {
+    currentPage: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  }
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -25,6 +34,13 @@ const TaskDashboard = () => {
   const [loading, setLoading] = useState(true);
   const { currentUser } = useUserContext();
   const [userGroupIds, setUserGroupIds] = useState<number[]>([]);
+  
+  const [pagination, setPagination] = useState<PaginationState>({
+    currentPage: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0
+  });
 
   useEffect(() => {
     if (currentUser?.role === 'employee') {
@@ -38,47 +54,68 @@ const TaskDashboard = () => {
     }
   }, [currentUser]);
 
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/tasks`);
-        const data = await response.json();
-
-        const transformedTasks = data.map(task => {
-          const assignedFullName = `${task.assigned_to_first_name || ''} ${task.assigned_to_last_name || ''}`.trim();
-          return {
-            task_id: task.task_id?.toString() || '',
-            task_name: task.task_name || 'Unnamed Task',
-            status: task.status || 'pending',
-            due_date: task.due_date || '',
-            priority: task.priority || 'Medium',
-            assigned_to: assignedFullName || 'Unassigned',
-            assigned_to_id: task.assigned_to || '',
-            group_id: task.group_name || 'No Group',
-            real_group_id: task.group_id // Capture the actual group ID from server
-          };
-        });
-
-        const finalTasks = transformedTasks.map(task => ({
-          ...task,
-          assigned_to:
-            currentUser &&
-              (task.assigned_to_id === currentUser.user_id ||
-                task.assigned_to === `${currentUser.first_name} ${currentUser.last_name}`)
-              ? 'You'
-              : task.assigned_to
-        }));
-
-        setTasks(finalTasks);
-      } catch (error) {
-        console.error('Error fetching tasks:', error);
-      } finally {
-        setLoading(false);
+  const fetchTasks = async (page: number = 1) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/tasks?page=${page}&limit=20`);
+      const responseData = await response.json();
+      
+      // Handle both backwards compatibility (array) and paginated response (object)
+      let data = [];
+      let newPagination = { currentPage: 1, pageSize: 20, total: 0, totalPages: 0 };
+      
+      if (Array.isArray(responseData)) {
+        data = responseData;
+        newPagination.total = data.length;
+        newPagination.totalPages = 1;
+      } else {
+        data = responseData.data;
+        newPagination = responseData.pagination;
       }
-    };
 
-    fetchTasks();
+      const transformedTasks = data.map((task: any) => {
+        const assignedFullName = `${task.assigned_to_first_name || ''} ${task.assigned_to_last_name || ''}`.trim();
+        return {
+          task_id: task.task_id?.toString() || '',
+          task_name: task.task_name || 'Unnamed Task',
+          status: task.status || 'pending',
+          due_date: task.due_date || '',
+          priority: task.priority || 'Medium',
+          assigned_to: assignedFullName || 'Unassigned',
+          assigned_to_id: task.assigned_to || '',
+          group_id: task.group_name || 'No Group',
+          real_group_id: task.group_id
+        };
+      });
+
+      const finalTasks = transformedTasks.map((task: any) => ({
+        ...task,
+        assigned_to:
+          currentUser &&
+            (task.assigned_to_id === currentUser.user_id ||
+              task.assigned_to === `${currentUser.first_name} ${currentUser.last_name}`)
+            ? 'You'
+            : task.assigned_to
+      }));
+
+      setTasks(finalTasks);
+      setPagination(newPagination);
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchTasks(1);
+    }
   }, [currentUser]);
+
+  const handlePageChange = (newPage: number) => {
+    fetchTasks(newPage);
+  };
 
   const handleDeleteTask = React.useCallback(async (taskId) => {
     try {
@@ -201,32 +238,8 @@ const TaskDashboard = () => {
 
       // Refetch all tasks to get the updated list
       const tasksResponse = await fetch(`${API_BASE_URL}/tasks`);
-      const data = await tasksResponse.json();
-
-      const transformedTasks = data.map(task => {
-        const assignedFullName = `${task.assigned_to_first_name || ''} ${task.assigned_to_last_name || ''}`.trim();
-        return {
-          task_id: task.task_id?.toString() || '',
-          task_name: task.task_name || 'Unnamed Task',
-          status: task.status || 'pending',
-          priority: task.priority || 'Medium',
-          due_date: task.due_date || '',
-          assigned_to: assignedFullName || 'Unassigned',
-          assigned_to_id: task.assigned_to || '',
-          group_id: task.group_name || 'No Group',
-        };
-      });
-
-      const finalTasks = transformedTasks.map(task => ({
-        ...task,
-        assigned_to:
-          currentUser &&
-            task.assigned_to === `${currentUser.first_name} ${currentUser.last_name}`
-            ? 'You'
-            : task.assigned_to
-      }));
-
-      setTasks(finalTasks);
+      // Refetch current page to get the updated list
+      await fetchTasks(pagination.currentPage);
       setShowForm(false);
     } catch (error) {
       console.error('Error creating task:', error);
@@ -422,15 +435,24 @@ const TaskDashboard = () => {
 
         {/* Task Grid */}
         {filteredTasks.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredTasks.map(task => (
-              <TaskCard
-                key={task.task_id}
-                task={task}
-                onStatusChange={handleStatusChange}
-                onDelete={handleDeleteTask}
-              />
-            ))}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {filteredTasks.map(task => (
+                <TaskCard
+                  key={task.task_id}
+                  task={task}
+                  onStatusChange={handleStatusChange}
+                  onDelete={handleDeleteTask}
+                />
+              ))}
+            </div>
+            
+            <PaginationControls
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
+              isLoading={loading}
+            />
           </div>
         ) : (
           <div className="text-center py-12 rounded-xl bg-white border border-gray-200 shadow-sm">

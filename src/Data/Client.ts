@@ -46,11 +46,15 @@ export interface Client {
 }
 
 
-export const fetchClients = async (userId: number): Promise<Client[]> => {
+export const fetchClients = async (userId: number, page?: number, limit?: number): Promise<{ data: Client[], pagination?: any } | Client[]> => {
   try {
+    const url = page && limit 
+      ? `${API_BASE_URL}/clientDataRoutes?page=${page}&limit=${limit}`
+      : `${API_BASE_URL}/clientDataRoutes`;
+      
     // Fetch clients data and relations in parallel
     const [clientsResponse, relationsResponse] = await Promise.all([
-      axios.get(`${API_BASE_URL}/clientDataRoutes`),
+      axios.get(url),
       axios.get(`${API_BASE_URL}/client-relations/${userId}`)
     ]);
 
@@ -67,8 +71,11 @@ export const fetchClients = async (userId: number): Promise<Client[]> => {
         .map((relation: any) => relation.client_id)
     );
 
+    const isPaginated = !!clientsResponse.data.pagination;
+    const clientDataList = isPaginated ? clientsResponse.data.data : clientsResponse.data;
+
     const clients: Client[] = await Promise.all(
-      clientsResponse.data.map(async (client: any) => {
+      clientDataList.map(async (client: any) => {
         const {
           client_id,
           auth_id,
@@ -127,6 +134,9 @@ export const fetchClients = async (userId: number): Promise<Client[]> => {
       })
     );
 
+    if (isPaginated) {
+      return { data: clients, pagination: clientsResponse.data.pagination };
+    }
     return clients;
   } catch (error) {
     console.error("Failed to fetch client data:", error);

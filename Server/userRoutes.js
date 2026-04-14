@@ -7,11 +7,29 @@ module.exports = (db) => {
   const router = express.Router();
 
   // Fetch all users with their roles
+  // Fetch all users with their roles (Paginated)
   router.get("/", (req, res) => {
     // console.log("Received request to fetch all users with roles");
     const results = dataCache.getUsers();
     // console.log(`Fetched ${results.length} users with roles from cache`);
-    res.json(results);
+    const page = req.query.page ? parseInt(req.query.page) : null;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 20;
+
+    if (page && limit) {
+      const offset = (page - 1) * limit;
+      const paginatedResults = results.slice(offset, offset + limit);
+      res.json({
+        data: paginatedResults,
+        pagination: {
+          currentPage: page,
+          pageSize: limit,
+          total: results.length,
+          totalPages: Math.ceil(results.length / limit)
+        }
+      });
+    } else {
+      res.json(results);
+    }
   });
 
   // Fetch a specific user by ID with role
