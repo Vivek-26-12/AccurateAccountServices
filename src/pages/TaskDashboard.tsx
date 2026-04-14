@@ -3,6 +3,8 @@ import { FiSearch, FiPlus, FiFilter, FiCalendar, FiUser, FiCheckCircle, FiCircle
 import { TaskCard } from './TasksPage/TaskCard';
 import { TaskForm } from './TasksPage/TaskForm';
 import { useUserContext } from '../Data/UserData';
+import { PaginationControls } from '../components/PaginationControls';
+import { TaskSkeleton } from '../components/SkeletonLoaders';
 import API_BASE_URL from '../config';
 
 const TaskDashboard = () => {
@@ -17,8 +19,6 @@ const TaskDashboard = () => {
     group_id: string;
     real_group_id?: number;
   }
-
-  import { PaginationControls } from '../components/PaginationControls';
 
   interface PaginationState {
     currentPage: number;
@@ -434,42 +434,49 @@ const TaskDashboard = () => {
         </div>
 
         {/* Task Grid */}
-        {filteredTasks.length > 0 ? (
           <div className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {filteredTasks.map(task => (
-                <TaskCard
-                  key={task.task_id}
-                  task={task}
-                  onStatusChange={handleStatusChange}
-                  onDelete={handleDeleteTask}
-                />
-              ))}
+              {loading ? (
+                // Show skeletons while loading
+                [...Array(6)].map((_, i) => <TaskSkeleton key={i} />)
+              ) : filteredTasks.length > 0 ? (
+                // Show tasks if loaded and available
+                filteredTasks.map(task => (
+                  <TaskCard
+                    key={task.task_id}
+                    task={task}
+                    onStatusChange={handleStatusChange}
+                    onDelete={handleDeleteTask}
+                  />
+                ))
+              ) : (
+                // Show empty state if loaded but no tasks
+                <div className="col-span-full text-center py-12 rounded-xl bg-white border border-gray-200 shadow-sm">
+                  <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                    <FiSearch className="text-gray-400 text-xl" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-700 mb-1">No tasks found</h3>
+                  <p className="text-gray-500 mb-4 max-w-md mx-auto">Try adjusting your search or filter criteria</p>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm text-sm"
+                  >
+                    <FiPlus />
+                    <span>Create New Task</span>
+                  </button>
+                </div>
+              )}
             </div>
             
-            <PaginationControls
-              currentPage={pagination.currentPage}
-              totalPages={pagination.totalPages}
-              onPageChange={handlePageChange}
-              isLoading={loading}
-            />
+            {!loading && filteredTasks.length > 0 && (
+              <PaginationControls
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={handlePageChange}
+                isLoading={loading}
+              />
+            )}
           </div>
-        ) : (
-          <div className="text-center py-12 rounded-xl bg-white border border-gray-200 shadow-sm">
-            <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-              <FiSearch className="text-gray-400 text-xl" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-700 mb-1">No tasks found</h3>
-            <p className="text-gray-500 mb-4 max-w-md mx-auto">Try adjusting your search or filter criteria</p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 text-white px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm text-sm"
-            >
-              <FiPlus />
-              <span>Create New Task</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Task Form Modal */}
