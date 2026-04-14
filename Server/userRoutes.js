@@ -28,20 +28,41 @@ module.exports = (db) => {
     }
   });
 
-  // Fetch a specific user by ID with role
-  router.get("/:id", (req, res) => {
+  // Fetch a specific user by ID (Resilient to user_id or auth_id)
+  router.get("/:id", async (req, res) => {
     const { id } = req.params;
-    const user = dataCache.getUser(id);
+    
+    // 1. Try Cache by user_id
+    let user = dataCache.getUser(id);
+    if (user) return res.json(user);
 
-    if (!user) {
+    // 2. Try Cache by auth_id (Backwards compatibility)
+    user = dataCache.getUserByAuthId(id);
+    if (user) return res.json(user);
+
+    // 3. Fallback to DB - Check USERS by user_id OR auth_id
+    try {
+      const query = `
+        SELECT 
+          Users.user_id, Users.auth_id, Auth.username, Auth.role, 
+          Users.first_name, Users.last_name, Users.email, Users.phone, 
+          Users.profile_pic, Users.created_at, Users.updated_at 
+        FROM Users 
+        INNER JOIN Auth ON Users.auth_id = Auth.auth_id
+        WHERE Users.user_id = ? OR Users.auth_id = ?`;
+      
+      const [results] = await db.query(query, [id, id]);
+      if (results.length > 0) return res.json(results[0]);
+
       return res.status(404).json({ error: "User not found" });
+    } catch (err) {
+      console.error("Database error fetching user:", err);
+      res.status(500).json({ error: "Internal server error" });
     }
-    res.json(user);
   });
 
   /**
-   * Fetch profile by auth_id (Unified for Admin, Employee, and Client)
-   * This ensures that IDs like 34 (clients) work correctly through this endpoint.
+   * Fetch profile by auth_id (Remains for specific lookups)
    */
   router.get("/auth/:auth_id", async (req, res) => {
     const { auth_id } = req.params;
