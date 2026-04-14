@@ -2,51 +2,25 @@ const express = require("express");
 const router = express.Router();
 
 module.exports = (db) => {
-  router.post("/uploadimportant", (req, res) => {
+  router.post("/uploadimportant", async (req, res) => {
     const { doc_id, fileUrl } = req.body;
 
     if (!doc_id || !fileUrl) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: doc_id and fileUrl",
-      });
+      return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const checkSql = "SELECT * FROM ImportantDocuments WHERE doc_id = ?";
-    db.query(checkSql, [doc_id], (err, results) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({
-          success: false,
-          message: "Database error",
-          error: err.message,
-        });
-      }
-
+    try {
+      const [results] = await db.query("SELECT * FROM ImportantDocuments WHERE doc_id = ?", [doc_id]);
       if (results.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Important document not found",
-        });
+        return res.status(404).json({ success: false, message: "Document not found" });
       }
 
-      const updateSql = "UPDATE ImportantDocuments SET doc_data = ? WHERE doc_id = ?";
-      db.query(updateSql, [fileUrl, doc_id], (err) => {
-        if (err) {
-          console.error("Update error:", err);
-          return res.status(500).json({
-            success: false,
-            message: "Failed to update document",
-            error: err.message,
-          });
-        }
-
-        res.json({
-          success: true,
-          message: "Important document updated successfully",
-        });
-      });
-    });
+      await db.query("UPDATE ImportantDocuments SET doc_data = ? WHERE doc_id = ?", [fileUrl, doc_id]);
+      res.json({ success: true, message: "Updated successfully" });
+    } catch (err) {
+      console.error("Database error:", err);
+      res.status(500).json({ success: false, message: "Database error" });
+    }
   });
 
   return router;
