@@ -102,6 +102,11 @@ module.exports = (db, io) => {
     res.json(dataCache.getAllGroups());
   });
 
+  // GET all groups (alias for ManageUsersMain)
+  router.get("/groups/all", (req, res) => {
+    res.json(dataCache.getAllGroups());
+  });
+
   // POST create new group
   router.post("/groups", async (req, res) => {
     const { group_name, creator_id, members } = req.body;

@@ -7,8 +7,8 @@ module.exports = (db) => {
   router.post("/other/create", async (req, res) => {
     const { client_id, folder_id, doc_name, fileUrl } = req.body;
   
-    if (!client_id || !folder_id || !doc_name) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+    if (!client_id || !doc_name) {
+      return res.status(400).json({ success: false, message: "Missing required fields: client_id and doc_name are mandatory" });
     }
   
     const insertSql = `

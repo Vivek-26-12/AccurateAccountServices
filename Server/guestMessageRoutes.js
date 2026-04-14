@@ -6,7 +6,7 @@ module.exports = (db) => {
     const router = express.Router();
 
     // Route to add a guest message
-    router.post("/", (req, res) => {
+    router.post("/", async (req, res) => {
         const { guest_name, guest_email, message } = req.body;
 
         if (!guest_name || !guest_email || !message) {
@@ -18,14 +18,13 @@ module.exports = (db) => {
             VALUES (?, ?, ?)
         `;
 
-        db.query(query, [guest_name, guest_email, message], (err, result) => {
-            if (err) {
-                console.error("Error inserting guest message:", err);
-                return res.status(500).json({ error: "Internal Server Error" });
-            }
-
+        try {
+            await db.query(query, [guest_name, guest_email, message]);
             res.status(201).json({ message: "Message sent successfully!" });
-        });
+        } catch (err) {
+            console.error("Error inserting guest message:", err);
+            res.status(500).json({ error: "Internal Server Error" });
+        }
     });
 
     // Route to get all guest messages (admin use)

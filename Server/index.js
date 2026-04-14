@@ -95,7 +95,7 @@ app.use("/folders", folderRoutes(db));
 app.use("/feedback", feedbackRoutes(db));
 app.use("/chats", chatRoutes(db, io));
 app.use("/", unseenMessagesRoutes(db));
-app.use("/", taskRoutes(db));
+app.use("/tasks", taskRoutes(db));
 app.use("/guest-messages", guestMessageRoutes(db));
 app.use('/announcements', announcementsRouter(db));
 app.use("/client-relations", clientRelationRoutes(db));
