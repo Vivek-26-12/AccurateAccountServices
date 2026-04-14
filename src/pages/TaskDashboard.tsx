@@ -80,7 +80,7 @@ const TaskDashboard = () => {
     fetchTasks();
   }, [currentUser]);
 
-  const handleDeleteTask = async (taskId) => {
+  const handleDeleteTask = React.useCallback(async (taskId) => {
     try {
       // Make DELETE request to the API
       await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
@@ -88,14 +88,14 @@ const TaskDashboard = () => {
       });
 
       // Update local state by removing the deleted task
-      setTasks(tasks.filter(task => task.task_id !== taskId));
+      setTasks(prevTasks => prevTasks.filter(task => task.task_id !== taskId));
     } catch (error) {
       console.error('Error deleting task:', error);
       // You might want to add user feedback here (e.g., toast notification)
     }
-  };
+  }, []);
 
-  const filteredTasks = tasks.filter(task => {
+  const filteredTasks = React.useMemo(() => tasks.filter(task => {
     const taskName = task.task_name || '';
     const assignedTo = task.assigned_to || '';
 
@@ -144,19 +144,15 @@ const TaskDashboard = () => {
       return matchesSearch && dueDate && dueDate < today;
     }
 
-    if (filter === 'overdue') {
-      return matchesSearch && dueDate && dueDate < today;
-    }
-
     if (filter === 'completed') {
       return matchesSearch && task.status === 'Completed';
     }
 
     return matchesSearch;
-  });
+  }), [tasks, searchTerm, filter, currentUser, userGroupIds]);
 
 
-  const handleStatusChange = async (taskId, newStatus) => {
+  const handleStatusChange = React.useCallback(async (taskId, newStatus) => {
     try {
       const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`, {
         method: 'PUT',
@@ -168,13 +164,13 @@ const TaskDashboard = () => {
 
       const updatedTask = await response.json();
 
-      setTasks(tasks.map(task =>
+      setTasks(prevTasks => prevTasks.map(task =>
         task.task_id === taskId ? { ...task, status: newStatus, priority: updatedTask.priority } : task
       ));
     } catch (error) {
       console.error('Error updating task:', error);
     }
-  };
+  }, []);
 
   const handleAddTask = async (newTask) => {
     if (!currentUser) {

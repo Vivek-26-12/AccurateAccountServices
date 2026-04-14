@@ -51,6 +51,34 @@ interface GroupMember {
   role: string;
 }
 
+const AnnouncementCard = React.memo(({ announcement, defaultProfilePic, formatTime }: { announcement: Announcement, defaultProfilePic: string, formatTime: (d: string) => string }) => (
+  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+    <div className="flex items-start mb-3">
+      <img
+        src={announcement.profile_pic || defaultProfilePic}
+        alt={`${announcement.first_name} ${announcement.last_name}`}
+        className="w-11 h-11 rounded-full mr-4 border-2 border-white shadow-sm"
+      />
+      <div className="flex-1">
+        <div className="flex justify-between items-start">
+          <div>
+            <h4 className="font-bold text-gray-900 text-base">
+              {announcement.first_name} {announcement.last_name}
+            </h4>
+            <h5 className="text-sm font-semibold text-blue-600 mt-0.5">{announcement.title}</h5>
+          </div>
+          <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded-md">
+            {formatTime(announcement.created_at)}
+          </span>
+        </div>
+        <div className="mt-3 text-gray-600 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
+          {announcement.message}
+        </div>
+      </div>
+    </div>
+  </div>
+));
+
 const Chat = () => {
   const { currentUser } = useUserContext();
   const {
@@ -277,9 +305,9 @@ const Chat = () => {
             sender_id: data.sender_id,
             message: data.message,
             created_at: data.created_at,
-            first_name: isMe ? currentLoggedInUser.first_name : (sender?.first_name || 'Unknown'),
-            last_name: isMe ? currentLoggedInUser.last_name : (sender?.last_name || ''),
-            profile_pic: isMe ? currentLoggedInUser.profile_pic : (sender?.profile_pic || defaultProfilePic)
+            first_name: isMe ? currentLoggedInUser.first_name : (data.first_name || sender?.first_name || 'Unknown'),
+            last_name: isMe ? currentLoggedInUser.last_name : (data.last_name || sender?.last_name || ''),
+            profile_pic: isMe ? currentLoggedInUser.profile_pic : (data.profile_pic || sender?.profile_pic || defaultProfilePic)
           };
 
           // Scroll to bottom
@@ -412,9 +440,12 @@ const Chat = () => {
     return defaultProfilePic;
   };
 
-  const filteredUsers = users.filter(user =>
-    `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = React.useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return users.filter(user =>
+      `${user.first_name} ${user.last_name}`.toLowerCase().includes(query)
+    );
+  }, [users, searchQuery]);
 
   const toggleChat = () => {
     setIsChatOpen(!isChatOpen);
@@ -949,31 +980,12 @@ const Chat = () => {
                     ) : announcements.length > 0 ? (
                       <div className="space-y-4">
                         {announcements.map(announcement => (
-                          <div key={announcement.announcement_id} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
-                            <div className="flex items-start mb-3">
-                              <img
-                                src={announcement.profile_pic || defaultProfilePic}
-                                alt={`${announcement.first_name} ${announcement.last_name}`}
-                                className="w-11 h-11 rounded-full mr-4 border-2 border-white shadow-sm"
-                              />
-                              <div className="flex-1">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <h4 className="font-bold text-gray-900 text-base">
-                                      {announcement.first_name} {announcement.last_name}
-                                    </h4>
-                                    <h5 className="text-sm font-semibold text-blue-600 mt-0.5">{announcement.title}</h5>
-                                  </div>
-                                  <span className="text-xs text-gray-400 font-medium bg-gray-50 px-2 py-1 rounded-md">
-                                    {formatTime(announcement.created_at)}
-                                  </span>
-                                </div>
-                                <div className="mt-3 text-gray-600 text-sm leading-relaxed whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
-                                  {announcement.message}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                          <AnnouncementCard 
+                            key={announcement.announcement_id} 
+                            announcement={announcement} 
+                            defaultProfilePic={defaultProfilePic} 
+                            formatTime={formatTime} 
+                          />
                         ))}
                       </div>
                     ) : (

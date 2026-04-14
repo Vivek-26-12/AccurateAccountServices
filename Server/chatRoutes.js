@@ -45,6 +45,7 @@ module.exports = (db, io) => {
         }
         if (!err) {
           const chat_id = results.insertId;
+          const senderUser = dataCache.getUser(sender_id);
           // Emit socket event to receiver's room
           const messageData = {
             message_id: chat_id,
@@ -52,7 +53,9 @@ module.exports = (db, io) => {
             receiver_id,
             message,
             created_at: new Date().toISOString(),
-            // You might want to fetch sender details here or handle it on frontend
+            first_name: senderUser?.first_name,
+            last_name: senderUser?.last_name,
+            profile_pic: senderUser?.profile_pic
           };
           io.to(`user_${receiver_id}`).emit("receive_message", messageData);
           io.to(`user_${sender_id}`).emit("receive_message", messageData); // Also emit to sender (for other tabs)
@@ -70,6 +73,7 @@ module.exports = (db, io) => {
         }
         if (!err) {
           const message_id = results.insertId;
+          const senderUser = dataCache.getUser(sender_id);
           // Emit socket event to group room
           const messageData = {
             message_id,
@@ -77,6 +81,9 @@ module.exports = (db, io) => {
             group_id,
             message,
             created_at: new Date().toISOString(),
+            first_name: senderUser?.first_name,
+            last_name: senderUser?.last_name,
+            profile_pic: senderUser?.profile_pic
           };
           io.to(`group_${group_id}`).emit("receive_message", messageData);
         }

@@ -22,7 +22,7 @@ class DataCache {
         this.clientUserRelations = [];
     }
 
-    start(intervalMs = 3000) {
+    start(intervalMs = 30000) {
         // console.log(`Starting Data Cache with ${intervalMs}ms interval...`);
         this.refresh();
         setInterval(() => this.refresh(), intervalMs);
@@ -121,17 +121,17 @@ class DataCache {
                 db.query(groupMembersQuery),
                 db.query(groupMsgsQuery),
                 db.query(personalMsgsQuery),
-                db.query(`SELECT * FROM Announcements ORDER BY created_at DESC`),
+                db.query(`SELECT announcement_id, auth_id, title, message, created_at FROM Announcements ORDER BY created_at DESC`),
                 db.query(clientQuery),
-                db.query(`SELECT * FROM ClientContacts`),
+                db.query(`SELECT contact_id, client_id, contact_name, email, phone FROM ClientContacts`),
                 db.query(taskQuery),
-                db.query(`SELECT * FROM Folders`),
-                db.query(`SELECT * FROM FolderConnections`),
-                db.query(`SELECT * FROM ImportantDocuments`),
-                db.query(`SELECT * FROM OtherDocuments`),
+                db.query(`SELECT folder_id, folder_name FROM Folders`),
+                db.query(`SELECT folder_id, client_id FROM FolderConnections`),
+                db.query(`SELECT doc_id, client_id, doc_name, folder_id, created_at FROM ImportantDocuments`),
+                db.query(`SELECT doc_id, client_id, doc_name, folder_id, created_at FROM OtherDocuments`),
                 db.query(feedbackQuery),
-                db.query(`SELECT * FROM GuestMessages ORDER BY created_at DESC`),
-                db.query(`SELECT * FROM ClientUserRelations`)
+                db.query(`SELECT message_id, guest_name, guest_email, message, created_at FROM GuestMessages ORDER BY created_at DESC`),
+                db.query(`SELECT client_id, user_id, relation_type FROM ClientUserRelations`)
             ]);
 
             // Update Cache atomatically (all at once)

@@ -13,7 +13,7 @@ import {
   FiUsers
 } from 'react-icons/fi';
 
-export const TaskCard = ({ task, onStatusChange, onDelete }) => {
+export const TaskCard = React.memo(({ task, onStatusChange, onDelete }) => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const statusColors = {
@@ -183,4 +183,4 @@ export const TaskCard = ({ task, onStatusChange, onDelete }) => {
       )}
     </>
   );
-};
+});
