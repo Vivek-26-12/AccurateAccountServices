@@ -34,7 +34,7 @@ module.exports = (db) => {
 
 
   // POST /tasks - Create a new task
-  router.post("/tasks", (req, res) => {
+  router.post("/tasks", async (req, res) => {
     const { task_name, assigned_by, assigned_to, group_id, due_date, status, priority } = req.body;
 
     const query = `
@@ -42,34 +42,33 @@ module.exports = (db) => {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `;
 
-    db.query(
-      query,
-      [
-        task_name,
-        assigned_by,
-        assigned_to || null,
-        group_id || null,
-        due_date,
-        status || 'Pending',
-        priority || 'Medium'
-      ],
-      (err, result) => {
-        if (err) {
-          console.error("Error creating task:", err);
-          return res.status(500).json({ error: "Error creating task" });
-        }
-        res.json({
-          message: "Task created successfully",
-          task_id: result.insertId,
-          priority: priority || 'Medium'
-        });
-      }
-    );
+    try {
+      const [result] = await db.query(
+        query,
+        [
+          task_name,
+          assigned_by,
+          assigned_to || null,
+          group_id || null,
+          due_date,
+          status || 'Pending',
+          priority || 'Medium'
+        ]
+      );
+      res.json({
+        message: "Task created successfully",
+        task_id: result.insertId,
+        priority: priority || 'Medium'
+      });
+    } catch (err) {
+      console.error("Error creating task:", err);
+      return res.status(500).json({ error: "Error creating task" });
+    }
   });
 
 
   // PUT /tasks/:id - Update a task
-  router.put("/tasks/:id", (req, res) => {
+  router.put("/tasks/:id", async (req, res) => {
     const { id } = req.params;
     const { task_name, assigned_by, assigned_to, group_id, due_date, status, priority } = req.body;
 
@@ -87,44 +86,43 @@ module.exports = (db) => {
       WHERE task_id = ?
     `;
 
-    db.query(
-      query,
-      [
-        task_name,
-        assigned_by,
-        assigned_to || null,
-        group_id || null,
-        due_date,
-        status,
-        priority || 'Medium',
-        id
-      ],
-      (err) => {
-        if (err) {
-          console.error("Error updating task:", err);
-          return res.status(500).json({ error: "Error updating task" });
-        }
-        res.json({
-          message: "Task updated successfully",
-          priority: priority || 'Medium'
-        });
-      }
-    );
+    try {
+      await db.query(
+        query,
+        [
+          task_name,
+          assigned_by,
+          assigned_to || null,
+          group_id || null,
+          due_date,
+          status,
+          priority || 'Medium',
+          id
+        ]
+      );
+      res.json({
+        message: "Task updated successfully",
+        priority: priority || 'Medium'
+      });
+    } catch (err) {
+      console.error("Error updating task:", err);
+      return res.status(500).json({ error: "Error updating task" });
+    }
   });
 
   // DELETE /tasks/:id - Delete a task
-  router.delete("/tasks/:id", (req, res) => {
+  router.delete("/tasks/:id", async (req, res) => {
     const { id } = req.params;
 
     const query = `DELETE FROM Tasks WHERE task_id = ?`;
 
-    db.query(query, [id], (err) => {
-      if (err) {
-        console.error("Error deleting task:", err);
-        return res.status(500).json({ error: "Error deleting task" });
-      }
+    try {
+      await db.query(query, [id]);
       res.json({ message: "Task deleted successfully" });
-    });
+    } catch (err) {
+      console.error("Error deleting task:", err);
+      return res.status(500).json({ error: "Error deleting task" });
+    }
   });
 
   return router;

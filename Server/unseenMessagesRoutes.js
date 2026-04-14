@@ -4,7 +4,7 @@ const router = express.Router();
 
 module.exports = (db) => {
     // Route: GET /unseen-messages/all?user_id=1
-    router.get("/unseen-messages/all", (req, res) => {
+    router.get("/unseen-messages/all", async (req, res) => {
         const { user_id } = req.query;
 
         if (!user_id) {
@@ -17,7 +17,6 @@ module.exports = (db) => {
             group_chats: {}
         };
 
-        // First query: Get all unseen personal messages counts
         const personalQuery = `
             SELECT sender_id, COUNT(*) as unseen_count
             FROM PersonalChats
@@ -25,7 +24,6 @@ module.exports = (db) => {
             GROUP BY sender_id
         `;
 
-        // Second query: Get all unseen group messages counts
         const groupQuery = `
             SELECT group_id, COUNT(*) as unseen_count
             FROM GroupChatMessageSeen
@@ -33,125 +31,76 @@ module.exports = (db) => {
             GROUP BY group_id
         `;
 
-        // Execute both queries in parallel
-        db.query(personalQuery, [user_id], (personalErr, personalResults) => {
-            if (personalErr) {
-                console.error("Error fetching unseen personal messages:", personalErr);
-                return res.status(500).json({ error: "Database error fetching personal messages" });
-            }
+        try {
+            // Execute both queries in parallel
+            const [[personalResults], [groupResults]] = await Promise.all([
+                db.query(personalQuery, [user_id]),
+                db.query(groupQuery, [user_id])
+            ]);
 
-            // Store personal chat results
             personalResults.forEach(row => {
                 unseenCounts.personal_chats[row.sender_id] = row.unseen_count;
             });
 
-            db.query(groupQuery, [user_id], (groupErr, groupResults) => {
-                if (groupErr) {
-                    console.error("Error fetching unseen group messages:", groupErr);
-                    return res.status(500).json({ error: "Database error fetching group messages" });
-                }
-
-                // Store group chat results
-                groupResults.forEach(row => {
-                    unseenCounts.group_chats[row.group_id] = row.unseen_count;
-                });
-
-                res.json(unseenCounts);
+            groupResults.forEach(row => {
+                unseenCounts.group_chats[row.group_id] = row.unseen_count;
             });
-        });
+
+            res.json(unseenCounts);
+        } catch (error) {
+            console.error("Error fetching unseen messages summary:", error);
+            res.status(500).json({ error: "Database error fetching unseen messages" });
+        }
     });
 
-    // Route: GET /unseen-messages?user_id=1&group_id=2 (original single group check)
-    router.get("/unseen-messages", (req, res) => {
+    router.get("/unseen-messages", async (req, res) => {
         const { user_id, group_id } = req.query;
-
-        if (!user_id || !group_id) {
-            return res.status(400).json({ error: "user_id and group_id are required" });
-        }
+        if (!user_id || !group_id) return res.status(400).json({ error: "Missing params" });
 
         const query = `
             SELECT COUNT(*) AS unseen_count
             FROM GroupChatMessageSeen
             WHERE user_id = ? AND group_id = ? AND is_seen = FALSE
         `;
-
-        db.query(query, [user_id, group_id], (err, results) => {
-            if (err) {
-                console.error("Error fetching unseen messages:", err);
-                return res.status(500).json({ error: "Database error" });
-            }
-
+        try {
+            const [results] = await db.query(query, [user_id, group_id]);
             res.json({ unseen_count: results[0].unseen_count });
-        });
+        } catch (err) {
+            res.status(500).json({ error: "Database error" });
+        }
     });
 
-    // Mark personal messages as seen
-    router.post("/mark-personal-messages-seen", (req, res) => {
+    router.post("/mark-personal-messages-seen", async (req, res) => {
         const { sender_id, receiver_id } = req.body;
-    
-        if (!sender_id || !receiver_id) {
-            return res.status(400).json({ error: "sender_id and receiver_id are required" });
-        }
-    
-        const query = `
-            UPDATE PersonalChats 
-            SET is_seen = TRUE 
-            WHERE sender_id = ? AND receiver_id = ?
-        `;
-    
-        db.query(query, [sender_id, receiver_id], (err) => {
-            if (err) {
-                console.error("Error marking messages as seen:", err);
-                return res.status(500).json({ error: "Error updating messages" });
-            }
+        const query = `UPDATE PersonalChats SET is_seen = TRUE WHERE sender_id = ? AND receiver_id = ?`;
+        try {
+            await db.query(query, [sender_id, receiver_id]);
             res.json({ success: true });
-        });
+        } catch (err) {
+            res.status(500).json({ error: "Error updating messages" });
+        }
     });
-    
-    // Mark group messages as seen
-    router.post("/mark-group-messages-seen", (req, res) => {
+
+    router.post("/mark-group-messages-seen", async (req, res) => {
         const { user_id, group_id } = req.body;
-    
-        if (!user_id || !group_id) {
-            return res.status(400).json({ error: "user_id and group_id are required" });
-        }
-    
-        const query = `
-            UPDATE GroupChatMessageSeen
-            SET is_seen = TRUE 
-            WHERE user_id = ? AND group_id = ? AND is_seen = FALSE
-        `;
-    
-        db.query(query, [user_id, group_id], (err) => {
-            if (err) {
-                console.error("Error marking group messages as seen:", err);
-                return res.status(500).json({ error: "Error updating messages" });
-            }
+        const query = `UPDATE GroupChatMessageSeen SET is_seen = TRUE WHERE user_id = ? AND group_id = ? AND is_seen = FALSE`;
+        try {
+            await db.query(query, [user_id, group_id]);
             res.json({ success: true });
-        });
-    });
-    
-    // GET unseen personal message count (single chat)
-    router.get("/messages/unseen-count", (req, res) => {
-        const { user_id, receiver_id } = req.query;
-
-        if (!user_id || !receiver_id) {
-            return res.status(400).json({ error: "user_id and receiver_id are required" });
+        } catch (err) {
+            res.status(500).json({ error: "Error updating messages" });
         }
+    });
 
-        const query = `
-            SELECT COUNT(*) as unseen_count
-            FROM PersonalChats
-            WHERE sender_id = ? AND receiver_id = ? AND is_seen = 0
-        `;
-
-        db.query(query, [user_id, receiver_id], (err, results) => {
-            if (err) {
-                console.error("Error fetching unseen message count:", err);
-                return res.status(500).json({ error: "Error fetching unseen count" });
-            }
+    router.get("/messages/unseen-count", async (req, res) => {
+        const { user_id, receiver_id } = req.query;
+        const query = `SELECT COUNT(*) as unseen_count FROM PersonalChats WHERE sender_id = ? AND receiver_id = ? AND is_seen = 0`;
+        try {
+            const [results] = await db.query(query, [user_id, receiver_id]);
             res.json(results[0]);
-        });
+        } catch (err) {
+            res.status(500).json({ error: "Error fetching unseen count" });
+        }
     });
 
     return router;
