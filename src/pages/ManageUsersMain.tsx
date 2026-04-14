@@ -11,12 +11,13 @@ import AddUserModal from './ManageUsers/AddUserModal';
 import { GroupList } from './ManageUsers/GroupList';
 import { ViewGroupModal } from './ManageUsers/ViewGroupModal';
 import { useUserContext } from '../Data/UserData';
+import { useData } from '../context/DataContext';
 
 
 
 function ManageUsersMain() {
   const { currentUser } = useUserContext();
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const { refreshUsers, refreshClients } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isGroupViewModalOpen, setIsGroupViewModalOpen] = useState(false);
@@ -228,7 +229,7 @@ function ManageUsersMain() {
         }}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        onSubmit={(data, type) => {
+        onSubmit={async (data, type) => {
           if (type === 'Group') {
             console.log("Submitting Group Form. SelectedGroup:", selectedGroup);
             console.log("Form Data:", data);
@@ -281,7 +282,29 @@ function ManageUsersMain() {
             }
             return;
           }
-          handleAddUser(data as any);
+
+          // Handle REAL User/Client Registration
+          try {
+            const response = await fetch(`${API_BASE_URL}/register`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "Registration failed");
+
+            alert("Successfully registered!");
+            setIsModalOpen(false);
+            resetForm();
+            
+            // Force a reload of the UserTable by refreshing context
+            if (activeTab === 'Client') refreshClients();
+            else refreshUsers();
+          } catch (err: any) {
+            console.error("Registration error:", err);
+            alert(err.message);
+          }
         }}
         initialGroupData={selectedGroup} // Pass the selected group
       />

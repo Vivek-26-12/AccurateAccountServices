@@ -77,7 +77,7 @@ export const UserTable = ({ currentTab, searchTerm }: { currentTab?: 'users' | '
   }>({ show: false, entity: null });
 
   const activeTab = currentTab || 'users';
-  const { refreshUsers, refreshClients } = useData();
+  const { userVersion, clientVersion, refreshUsers, refreshClients } = useData();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,7 +91,11 @@ export const UserTable = ({ currentTab, searchTerm }: { currentTab?: 'users' | '
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        const typedData = data.map((item: any) => ({
+        
+        // Handle both raw array and paginated response format { data: [], pagination: {} }
+        const dataList = Array.isArray(data) ? data : (data.data || []);
+        
+        const typedData = dataList.map((item: any) => ({
           ...item,
           type: activeTab === 'users' ? 'user' : 'client',
           contacts: activeTab === 'clients' ? (item.contacts || []) : undefined
@@ -108,7 +112,7 @@ export const UserTable = ({ currentTab, searchTerm }: { currentTab?: 'users' | '
     };
 
     fetchData();
-  }, [activeTab, refreshUsers, refreshClients]);
+  }, [activeTab, userVersion, clientVersion]);
 
   useEffect(() => {
     if (searchTerm === '') {
