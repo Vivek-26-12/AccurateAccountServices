@@ -148,7 +148,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
       } catch (err: any) {
         console.error("Failed to fetch full user details:", err.response?.status, err.message);
-        setError("User details not found");
+        setError("User Profile Not Found");
         setLoading(false); 
       } finally {
         setLoading(false);

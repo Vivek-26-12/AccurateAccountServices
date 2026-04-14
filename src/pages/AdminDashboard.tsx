@@ -33,7 +33,7 @@ interface Stats {
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const { currentUser, loading: authLoading } = useUserContext();
+  const { currentUser, loading: authLoading, error: authError } = useUserContext();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -96,9 +96,9 @@ function AdminDashboard() {
         });
 
       } catch (err: any) {
-        const errorMsg = err.response?.data?.error || err.message || "Failed to load dashboard data";
-        setError(errorMsg);
-        console.error("Dashboard Fetch Error:", err);
+        console.error("Failed to fetch full user details:", err.response?.status, err.message);
+        setError("User Profile Not Found");
+        setIsLoading(false);
       } finally {
         setIsLoading(false);
       }
@@ -138,7 +138,7 @@ function AdminDashboard() {
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
         {/* Error Alert */}
-        {error && (
+        {(error || authError) && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-fade-in">
             <div className="bg-red-100 p-2 rounded-full">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -146,8 +146,8 @@ function AdminDashboard() {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="font-bold text-sm">Update Error</p>
-              <p className="text-xs opacity-90">{error}</p>
+              <p className="font-bold text-sm">System Error</p>
+              <p className="text-xs opacity-90">{error || authError}</p>
             </div>
             <button 
               onClick={() => window.location.reload()}
