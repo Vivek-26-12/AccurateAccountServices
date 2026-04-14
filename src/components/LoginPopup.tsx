@@ -30,9 +30,11 @@ export default function LoginPopup({ onClose }: { onClose: () => void }) {
       // Store user data in Auth Context
       login(data.user);
 
-      // Store role and authId in localStorage
+      // Store role and IDs in localStorage
       localStorage.setItem("userRole", data.user.role);
-      localStorage.setItem("authId", data.user.authId); // Ensure authId exists in response
+      localStorage.setItem("authId", data.user.auth_id.toString());
+      if (data.user.user_id) localStorage.setItem("userId", data.user.user_id.toString());
+      if (data.user.client_id) localStorage.setItem("clientId", data.user.client_id.toString());
 
       let redirectPath = "/";
       switch (data.user.role) {

@@ -11,7 +11,14 @@ module.exports = (db) => {
             return res.status(400).json({ error: "Username and password required" });
         }
 
-        const query = "SELECT * FROM Auth WHERE username = ?";
+        const query = `
+            SELECT 
+                Auth.auth_id, Auth.username, Auth.password, Auth.role,
+                Users.user_id, Clients.client_id
+            FROM Auth
+            LEFT JOIN Users ON Auth.auth_id = Users.auth_id
+            LEFT JOIN Clients ON Auth.auth_id = Clients.auth_id
+            WHERE Auth.username = ?`;
 
         try {
             // Using promise-based query

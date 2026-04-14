@@ -25,6 +25,8 @@ const decryptData = (ciphertext: string) => {
 
 type AuthUser = {
   auth_id: number;
+  user_id?: number;
+  client_id?: number;
   username: string;
   role: "admin" | "employee" | "client";
   created_at?: string;
@@ -127,8 +129,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // 2. Map Profile to CurrentUser format
         if (user.role === 'client') {
+          // If the profile fetch reveals a different ID or more details, update it
           setCurrentUser({
-            user_id: profileData.client_id || 0,
+            user_id: profileData.client_id || user.client_id || 0,
             auth_id: user.auth_id,
             first_name: profileData.contact_person || profileData.company_name || 'Client',
             last_name: '',
@@ -140,7 +143,11 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           });
           setUsers([]); // Clients shouldn't see other users
         } else {
-          setCurrentUser(profileData);
+          // Merge profile details with the existing user object (which now contains user_id)
+          setCurrentUser({
+            ...user,
+            ...profileData
+          } as AppUser);
           
           // 3. Admins/Employees fetch the user list for management
           const listRes = await axios.get(`${API_BASE_URL}/users`);
