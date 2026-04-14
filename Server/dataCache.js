@@ -41,7 +41,7 @@ class DataCache {
                 ORDER BY Users.user_id ASC`;
 
             // --- GROUPS & MESSAGES ---
-            const groupQuery = `SELECT * FROM GroupChats ORDER BY created_at DESC`;
+            const groupQuery = `SELECT group_id, group_name, created_at FROM GroupChats ORDER BY created_at DESC`;
             const groupMembersQuery = `
                 SELECT gcm.group_id, u.user_id, u.first_name, u.last_name, u.profile_pic, a.role
                 FROM GroupChatMembers gcm
@@ -53,6 +53,7 @@ class DataCache {
                     u.first_name, u.last_name, u.profile_pic
                 FROM GroupChatMessages gcm
                 JOIN Users u ON gcm.sender_id = u.user_id
+                WHERE gcm.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 ORDER BY gcm.created_at ASC`;
             const personalMsgsQuery = `
                 SELECT 
@@ -62,6 +63,7 @@ class DataCache {
                 FROM PersonalChats pc
                 JOIN Users u1 ON pc.sender_id = u1.user_id
                 JOIN Users u2 ON pc.receiver_id = u2.user_id
+                WHERE pc.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
                 ORDER BY created_at ASC`;
 
             // --- CLIENTS & DOCUMENTS ---

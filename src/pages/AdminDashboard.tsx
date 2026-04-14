@@ -33,7 +33,7 @@ interface Stats {
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const { currentUser } = useUserContext();
+  const { currentUser, loading: authLoading } = useUserContext();
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isMessagesOpen, setIsMessagesOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,52 +51,61 @@ function AdminDashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!currentUser?.user_id) {
+        if (!authLoading) setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
+        setError(null);
 
-        // Fetch admin tasks
-        if (currentUser?.user_id) {
-          const tasksResponse = await axios.get(`${API_BASE_URL}/tasks/user/${currentUser.user_id}`);
-          setTasks(tasksResponse.data.map((task: any) => ({
-            id: task.task_id,
-            title: task.task_name,
-            project: task.group_name || 'General',
-            priority: task.priority,
-            completed: task.status === 'Completed',
-            dueDate: task.due_date
-          })));
-        }
+        // Fetch dashboard data in parallel for speed
+        const [
+          tasksRes,
+          announcementsRes,
+          feedbackCountRes,
+          yesterdayFeedbackRes,
+          messageCountRes,
+          yesterdayMessageRes
+        ] = await Promise.all([
+          axios.get(`${API_BASE_URL}/tasks/user/${currentUser.user_id}`),
+          axios.get(`${API_BASE_URL}/announcements`),
+          axios.get(`${API_BASE_URL}/feedback/count`),
+          axios.get(`${API_BASE_URL}/feedback/count/yesterday`),
+          axios.get(`${API_BASE_URL}/guest-messages/count`),
+          axios.get(`${API_BASE_URL}/guest-messages/count/yesterday`)
+        ]);
 
-        // Fetch announcements
-        const announcementsResponse = await axios.get(`${API_BASE_URL}/announcements`);
-        setAnnouncements(announcementsResponse.data);
+        setTasks(tasksRes.data.map((task: any) => ({
+          id: task.task_id,
+          title: task.task_name,
+          project: task.group_name || 'General',
+          priority: task.priority,
+          completed: task.status === 'Completed',
+          dueDate: task.due_date
+        })));
 
-        const feedbackCountResponse = await axios.get(`${API_BASE_URL}/feedback/count`);
-        const yesterdayFeedbackResponse = await axios.get(`${API_BASE_URL}/feedback/count/yesterday`);
-
-        // Fetch guest message stats
-        const messageCountResponse = await axios.get(`${API_BASE_URL}/guest-messages/count`);
-        const yesterdayMessageResponse = await axios.get(`${API_BASE_URL}/guest-messages/count/yesterday`);
+        setAnnouncements(announcementsRes.data);
 
         setStats({
-          pendingReviews: feedbackCountResponse.data.count,
-          guestMessages: messageCountResponse.data.count,
-          yesterdayFeedbackCount: yesterdayFeedbackResponse.data.count,
-          yesterdayMessageCount: yesterdayMessageResponse.data.count
+          pendingReviews: feedbackCountRes.data.count,
+          guestMessages: messageCountRes.data.count,
+          yesterdayFeedbackCount: yesterdayFeedbackRes.data.count,
+          yesterdayMessageCount: yesterdayMessageRes.data.count
         });
 
       } catch (err: any) {
-        setError(err.message);
-        console.error("Error fetching data:", err);
+        const errorMsg = err.response?.data?.error || err.message || "Failed to load dashboard data";
+        setError(errorMsg);
+        console.error("Dashboard Fetch Error:", err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (currentUser?.user_id) {
-      fetchData();
-    }
-  }, [currentUser]);
+    fetchData();
+  }, [currentUser, authLoading]);
 
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
@@ -114,22 +123,12 @@ function AdminDashboard() {
 
   const handleViewAllTasks = () => navigate("/tasks");
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-red-500">
-          <p>Error loading dashboard: {error}</p>
+          <p className="mt-4 text-gray-600 font-medium">Loading organization dashboard...</p>
         </div>
       </div>
     );
@@ -138,6 +137,27 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <main className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        {/* Error Alert */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3 text-red-700 animate-fade-in">
+            <div className="bg-red-100 p-2 rounded-full">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-sm">Update Error</p>
+              <p className="text-xs opacity-90">{error}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="text-xs font-bold underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl shadow-sm p-4 sm:p-6 mb-6 text-white">
           <div className="flex flex-col sm:flex-row justify-between gap-4">
