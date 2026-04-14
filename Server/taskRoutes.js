@@ -3,125 +3,78 @@ const dataCache = require("./dataCache");
 const router = express.Router();
 
 module.exports = (db) => {
-  // GET /tasks - Fetch all tasks with details (Paginated)
-  router.get("/tasks", (req, res) => {
-    const results = dataCache.getTasks();
+  // GET / - Fetch all tasks
+  router.get("/", async (req, res) => {
+    let results = dataCache.getTasks();
+    
+    // DB Fallback if cache is empty
+    if (results.length === 0) {
+      try {
+        const [rows] = await db.query(`
+          SELECT t.*, assignedBy.first_name AS assigned_by_first_name, assignedTo.first_name AS assigned_to_first_name, gc.group_name
+          FROM Tasks t
+          LEFT JOIN Users assignedBy ON t.assigned_by = assignedBy.user_id
+          LEFT JOIN Users assignedTo ON t.assigned_to = assignedTo.user_id
+          LEFT JOIN GroupChats gc ON t.group_id = gc.group_id
+        `);
+        results = rows;
+      } catch (err) {
+        console.error("Task list fallback error:", err);
+      }
+    }
+
     const page = req.query.page ? parseInt(req.query.page) : null;
     const limit = req.query.limit ? parseInt(req.query.limit) : 20;
 
     if (page && limit) {
       const offset = (page - 1) * limit;
-      const paginatedResults = results.slice(offset, offset + limit);
-      res.json({
-        data: paginatedResults,
-        pagination: {
-          currentPage: page,
-          pageSize: limit,
-          total: results.length,
-          totalPages: Math.ceil(results.length / limit)
-        }
+      return res.json({
+        data: results.slice(offset, offset + limit),
+        pagination: { currentPage: page, pageSize: limit, total: results.length, totalPages: Math.ceil(results.length / limit) }
       });
-    } else {
-      res.json(results);
     }
+    res.json(results);
   });
-  // GET /tasks/user/:userId - Fetch tasks assigned to a specific user
-  router.get("/tasks/user/:userId", (req, res) => {
+
+  // GET /user/:userId
+  router.get("/user/:userId", (req, res) => {
     const userId = req.params.userId;
     const results = dataCache.getUserTasks(userId);
     res.json(results);
   });
 
-
-  // POST /tasks - Create a new task
-  router.post("/tasks", async (req, res) => {
+  // POST /tasks
+  router.post("/", async (req, res) => {
     const { task_name, assigned_by, assigned_to, group_id, due_date, status, priority } = req.body;
-
-    const query = `
-      INSERT INTO Tasks (task_name, assigned_by, assigned_to, group_id, due_date, status, priority)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
+    const query = `INSERT INTO Tasks (task_name, assigned_by, assigned_to, group_id, due_date, status, priority) VALUES (?, ?, ?, ?, ?, ?, ?)`;
     try {
-      const [result] = await db.query(
-        query,
-        [
-          task_name,
-          assigned_by,
-          assigned_to || null,
-          group_id || null,
-          due_date,
-          status || 'Pending',
-          priority || 'Medium'
-        ]
-      );
-      res.json({
-        message: "Task created successfully",
-        task_id: result.insertId,
-        priority: priority || 'Medium'
-      });
+      const [result] = await db.query(query, [task_name, assigned_by, assigned_to || null, group_id || null, due_date, status || 'Pending', priority || 'Medium']);
+      res.json({ message: "Task created", task_id: result.insertId });
     } catch (err) {
-      console.error("Error creating task:", err);
-      return res.status(500).json({ error: "Error creating task" });
+      res.status(500).json({ error: "Error creating task" });
     }
   });
 
-
-  // PUT /tasks/:id - Update a task
-  router.put("/tasks/:id", async (req, res) => {
+  // PUT /tasks/:id
+  router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { task_name, assigned_by, assigned_to, group_id, due_date, status, priority } = req.body;
-
-    const query = `
-      UPDATE Tasks
-      SET 
-        task_name = ?, 
-        assigned_by = ?, 
-        assigned_to = ?, 
-        group_id = ?, 
-        due_date = ?, 
-        status = ?, 
-        priority = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE task_id = ?
-    `;
-
+    const query = `UPDATE Tasks SET task_name = ?, assigned_by = ?, assigned_to = ?, group_id = ?, due_date = ?, status = ?, priority = ?, updated_at = CURRENT_TIMESTAMP WHERE task_id = ?`;
     try {
-      await db.query(
-        query,
-        [
-          task_name,
-          assigned_by,
-          assigned_to || null,
-          group_id || null,
-          due_date,
-          status,
-          priority || 'Medium',
-          id
-        ]
-      );
-      res.json({
-        message: "Task updated successfully",
-        priority: priority || 'Medium'
-      });
+      await db.query(query, [task_name, assigned_by, assigned_to || null, group_id || null, due_date, status, priority || 'Medium', id]);
+      res.json({ message: "Task updated" });
     } catch (err) {
-      console.error("Error updating task:", err);
-      return res.status(500).json({ error: "Error updating task" });
+      res.status(500).json({ error: "Error updating task" });
     }
   });
 
-  // DELETE /tasks/:id - Delete a task
-  router.delete("/tasks/:id", async (req, res) => {
-    const { id } = req.params;
-
-    const query = `DELETE FROM Tasks WHERE task_id = ?`;
-
+  // DELETE /tasks/:id
+  router.delete("/:id", async (req, res) => {
     try {
-      await db.query(query, [id]);
-      res.json({ message: "Task deleted successfully" });
+      await db.query(`DELETE FROM Tasks WHERE task_id = ?`, [req.params.id]);
+      res.json({ message: "Task deleted" });
     } catch (err) {
-      console.error("Error deleting task:", err);
-      return res.status(500).json({ error: "Error deleting task" });
+      res.status(500).json({ error: "Error deleting task" });
     }
   });
 

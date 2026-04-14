@@ -119,29 +119,30 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setLoading(true);
       setError(null);
       try {
-        // Shared endpoint to fetch appropriate role data
-        const isClient = user.role === 'client';
-        if (isClient) {
-          const profileRes = await axios.get(`${API_BASE_URL}/clients/${user.auth_id}`);
-          setProfile(profileRes.data);
-          
-          // Fallback map profile to currentUser to satisfy UserData dependencies
+        // 1. Fetch Profile (Unified route handles Client, Admin, or Employee)
+        const profileRes = await axios.get(`${API_BASE_URL}/users/auth/${user.auth_id}`);
+        const profileData = profileRes.data;
+        
+        setProfile(profileData);
+
+        // 2. Map Profile to CurrentUser format
+        if (user.role === 'client') {
           setCurrentUser({
-            user_id: profileRes.data.client_id || 0,
+            user_id: profileData.client_id || 0,
             auth_id: user.auth_id,
-            first_name: profileRes.data.contact_person?.split(' ')[0] || '',
-            last_name: profileRes.data.contact_person?.split(' ')[1] || '',
-            email: profileRes.data.email || '',
+            first_name: profileData.contact_person || profileData.company_name || 'Client',
+            last_name: '',
+            email: profileData.email || '',
             role: 'client',
-            created_at: profileRes.data.created_at || new Date().toISOString(),
-            updated_at: profileRes.data.updated_at || new Date().toISOString(),
-            profile_pic: profileRes.data.profile_pic || null
+            created_at: profileData.created_at || new Date().toISOString(),
+            updated_at: profileData.updated_at || new Date().toISOString(),
+            profile_pic: profileData.profile_pic || null
           });
+          setUsers([]); // Clients shouldn't see other users
         } else {
-          const userRes = await axios.get(`${API_BASE_URL}/users/auth/${user.auth_id}`);
-          setCurrentUser(userRes.data);
-          setProfile(userRes.data);
+          setCurrentUser(profileData);
           
+          // 3. Admins/Employees fetch the user list for management
           const listRes = await axios.get(`${API_BASE_URL}/users`);
           const usersData = Array.isArray(listRes.data) ? listRes.data : [];
           setUsers(usersData.filter((u: AppUser) => u.auth_id !== user.auth_id));
